@@ -2,11 +2,11 @@ import '../../../shared/models/collection_model.dart';
 import '../../../shared/models/link_model.dart';
 
 final List<LinkCollection> seedCollections = [
-  const LinkCollection(id: 'personal', name: 'Personal', emoji: '⭐'),
-  const LinkCollection(id: 'development', name: 'Development', emoji: '💻'),
-  const LinkCollection(id: 'learning', name: 'Learning', emoji: '📚'),
-  const LinkCollection(id: 'design', name: 'Design', emoji: '🎨'),
-  const LinkCollection(id: 'shopping', name: 'Shopping', emoji: '🛒'),
+  const LinkCollection(id: 'personal', name: 'Personal', emoji: 'folder'),
+  const LinkCollection(id: 'development', name: 'Development', emoji: 'code'),
+  const LinkCollection(id: 'learning', name: 'Learning', emoji: 'book'),
+  const LinkCollection(id: 'design', name: 'Design', emoji: 'palette'),
+  const LinkCollection(id: 'shopping', name: 'Shopping', emoji: 'shopping'),
 ];
 
 final List<LinkItem> seedLinks = [

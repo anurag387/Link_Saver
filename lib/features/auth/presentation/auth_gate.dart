@@ -61,7 +61,7 @@ class _ConfigurationScreen extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 620),
               child: Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(28),
+                  padding: EdgeInsets.all(28),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: const [

@@ -20,7 +20,7 @@ class LinkItem {
     required this.title,
     required this.description,
     required this.domain,
-    this.faviconEmoji = '🌐',
+    this.faviconEmoji = '',
     required this.collectionId,
     this.tags = const [],
     this.notes = '',
@@ -61,23 +61,28 @@ class LinkItem {
   }
 
   factory LinkItem.fromMap(Map<String, dynamic> map) => LinkItem(
-        id: map['id'] as String,
-        url: map['url'] as String,
+        id: (map['id'] as String?) ?? '',
+        url: (map['url'] as String?) ?? '',
         title: (map['title'] as String?) ?? '',
         description: (map['description'] as String?) ?? '',
         domain: (map['domain'] as String?) ?? '',
-        faviconEmoji: (map['favicon_emoji'] as String?) ?? '🌐',
-        collectionId: map['collection_id'] as String,
+        faviconEmoji: (map['favicon_emoji'] as String?) ?? (map['faviconEmoji'] as String?),
+        collectionId: (map['collection_id'] as String?) ??
+            (map['collectionId'] as String?) ??
+            'personal',
         tags: List<String>.from(map['tags'] ?? const <String>[]),
         notes: (map['notes'] as String?) ?? '',
-        isFavorite: map['is_favorite'] as bool? ?? false,
-        isArchived: map['is_archived'] as bool? ?? false,
-        isReadLater: map['is_read_later'] as bool? ?? false,
-        savedAt: _parseSavedAt(map['saved_at']),
-        metadataPending: map['metadata_pending'] as bool? ?? false,
+        isFavorite: (map['is_favorite'] as bool?) ?? (map['isFavorite'] as bool?) ?? false,
+        isArchived: (map['is_archived'] as bool?) ?? (map['isArchived'] as bool?) ?? false,
+        isReadLater: (map['is_read_later'] as bool?) ?? (map['isReadLater'] as bool?) ?? false,
+        savedAt: _parseSavedAt(map['saved_at'] ?? map['savedAt']),
+        metadataPending: (map['metadata_pending'] as bool?) ??
+            (map['metadataPending'] as bool?) ??
+            false,
       );
 
   LinkItem copyWith({
+    String? url,
     String? title,
     String? description,
     String? domain,
@@ -92,7 +97,7 @@ class LinkItem {
   }) {
     return LinkItem(
       id: id,
-      url: url,
+      url: url ?? this.url,
       title: title ?? this.title,
       description: description ?? this.description,
       domain: domain ?? this.domain,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../collections/providers/collections_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../providers/links_provider.dart';
@@ -39,9 +40,6 @@ class _SaveLinkSheetState extends ConsumerState<SaveLinkSheet> {
   @override
   void initState() {
     super.initState();
-    // Respect the "Default collection" setting instead of always defaulting
-    // to Personal. Guard against the stored default pointing at a
-    // collection that no longer exists.
     final collections = ref.read(collectionsProvider);
     final defaultCollection = ref.read(defaultCollectionProvider);
     _collectionId = collections.any((c) => c.id == defaultCollection)
@@ -72,15 +70,33 @@ class _SaveLinkSheetState extends ConsumerState<SaveLinkSheet> {
       setState(() => _urlError = 'Please enter a valid URL.');
       return;
     }
+
+    final rawUrl = _urlController.text.trim();
+    final cleanUrl = rawUrl.startsWith('http') ? rawUrl : 'https://$rawUrl';
+    final existing = ref.read(linksProvider).where((l) => l.url.toLowerCase() == cleanUrl.toLowerCase()).firstOrNull;
+
+    if (existing != null) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Duplicate Link Detected'),
+          content: Text('You already saved this link ("${existing.title.isNotEmpty ? existing.title : existing.domain}"). Do you want to save it again?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save Again')),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
+
     setState(() {
       _urlError = null;
       _saving = true;
     });
 
-    // Link is stored immediately (offline-first); metadata continues
-    // fetching in the background even after the sheet closes.
     unawaited(ref.read(linksProvider.notifier).saveLink(
-          url: _urlController.text.trim(),
+          url: cleanUrl,
           title: _titleController.text.trim(),
           collectionId: _collectionId,
           tags: _tags,
@@ -95,6 +111,10 @@ class _SaveLinkSheetState extends ConsumerState<SaveLinkSheet> {
     final theme = Theme.of(context);
     final collections = ref.watch(collectionsProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    final selectedCollectionId = collections.any((c) => c.id == _collectionId)
+        ? _collectionId
+        : (collections.isNotEmpty ? collections.first.id : kFallbackCollectionId);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -150,14 +170,75 @@ class _SaveLinkSheetState extends ConsumerState<SaveLinkSheet> {
               const SizedBox(height: AppSpacing.standard),
               Text('Collection', style: theme.textTheme.bodyMedium),
               const SizedBox(height: AppSpacing.small),
-              DropdownButtonFormField<String>(
-                value: _collectionId,
-                items: collections
-                    .map((c) => DropdownMenuItem(
-                        value: c.id, child: Text('${c.emoji}  ${c.name}')))
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _collectionId = value ?? _collectionId),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: selectedCollectionId,
+                      items: collections
+                          .map((c) {
+                            final iconData = IconHelper.getCollectionIcon(c.emoji);
+                            return DropdownMenuItem(
+                              value: c.id,
+                              child: Row(
+                                children: [
+                                  Icon(iconData, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(c.name),
+                                ],
+                              ),
+                            );
+                          })
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _collectionId = value ?? _collectionId),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.small),
+                  IconButton.filledTonal(
+                    tooltip: 'Create New Collection',
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    onPressed: () {
+                      final nameCtrl = TextEditingController();
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('New Collection'),
+                          content: TextField(
+                            controller: nameCtrl,
+                            autofocus: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Collection Name',
+                              hintText: 'e.g. Work, Research, Dev',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () async {
+                                final name = nameCtrl.text.trim();
+                                if (name.isNotEmpty) {
+                                  await ref.read(collectionsProvider.notifier).addCollection(name);
+                                  final updated = ref.read(collectionsProvider);
+                                  if (updated.isNotEmpty) {
+                                    setState(() {
+                                      _collectionId = updated.last.id;
+                                    });
+                                  }
+                                }
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                              child: const Text('Create'),
+                            ),
+                          ],
+                        ),
+                      ).then((_) => nameCtrl.dispose());
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.standard),
               Text('Tags', style: theme.textTheme.bodyMedium),

@@ -7,7 +7,7 @@ import '../../../core/backend/supabase_config.dart';
 import '../../../core/storage/local_storage_provider.dart';
 
 class UserProfile {
-  final String avatarEmoji;
+  final String avatarIcon;
   final String? avatarBase64;
   final String displayName;
   final String bio;
@@ -15,16 +15,16 @@ class UserProfile {
   final String occupation;
 
   const UserProfile({
-    this.avatarEmoji = '😎',
+    this.avatarIcon = 'person',
     this.avatarBase64,
-    this.displayName = 'Anurag Barmon',
-    this.bio = 'Curating knowledge and web links.',
+    this.displayName = '',
+    this.bio = '',
     this.personalNote = '',
-    this.occupation = 'Lead Software Engineer',
+    this.occupation = '',
   });
 
   UserProfile copyWith({
-    String? avatarEmoji,
+    String? avatarIcon,
     String? avatarBase64,
     String? displayName,
     String? bio,
@@ -33,7 +33,7 @@ class UserProfile {
     bool clearCustomAvatar = false,
   }) {
     return UserProfile(
-      avatarEmoji: avatarEmoji ?? this.avatarEmoji,
+      avatarIcon: avatarIcon ?? this.avatarIcon,
       avatarBase64: clearCustomAvatar ? null : (avatarBase64 ?? this.avatarBase64),
       displayName: displayName ?? this.displayName,
       bio: bio ?? this.bio,
@@ -46,67 +46,92 @@ class UserProfile {
 class ProfileNotifier extends StateNotifier<UserProfile> {
   final SharedPreferences _prefs;
 
-  ProfileNotifier(this._prefs) : super(_loadInitialProfile(_prefs)) {
-    _syncFromSupabase();
+  ProfileNotifier(this._prefs) : super(const UserProfile()) {
+    if (SupabaseConfig.isConfigured) {
+      supabase.auth.onAuthStateChange.listen((event) {
+        if (event.session == null) {
+          state = const UserProfile();
+        } else {
+          loadProfileForCurrentUser();
+        }
+      });
+      loadProfileForCurrentUser();
+    }
   }
 
-  static UserProfile _loadInitialProfile(SharedPreferences prefs) {
-    try {
-      final emoji = prefs.getString('user_avatar_emoji') ?? '😎';
-      final base64Image = prefs.getString('user_avatar_base64');
-      final name = prefs.getString('user_display_name') ?? 'Anurag Barmon';
-      final bio = prefs.getString('user_bio') ?? 'Curating knowledge and web links.';
-      final note = prefs.getString('user_personal_note') ?? '';
-      final occ = prefs.getString('user_occupation') ?? 'Lead Software Engineer';
+  String _keyFor(String userId, String base) => 'user_${userId}_$base';
 
-      return UserProfile(
-        avatarEmoji: emoji,
-        avatarBase64: base64Image,
-        displayName: name,
-        bio: bio,
-        personalNote: note,
-        occupation: occ,
-      );
-    } catch (_) {
-      return const UserProfile();
+  void loadProfileForCurrentUser() {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      state = const UserProfile();
+      return;
     }
+    final userId = user.id;
+    final userEmail = user.email ?? '';
+    final defaultName = userEmail.contains('@') ? userEmail.split('@')[0] : 'User';
+
+    // 1. Read from user-specific local cache
+    final icon = _prefs.getString(_keyFor(userId, 'avatar_icon')) ?? 'person';
+    final base64Image = _prefs.getString(_keyFor(userId, 'avatar_base64'));
+    final name = _prefs.getString(_keyFor(userId, 'display_name')) ?? defaultName;
+    final bio = _prefs.getString(_keyFor(userId, 'bio')) ?? '';
+    final note = _prefs.getString(_keyFor(userId, 'personal_note')) ?? '';
+    final occ = _prefs.getString(_keyFor(userId, 'occupation')) ?? '';
+
+    state = UserProfile(
+      avatarIcon: icon,
+      avatarBase64: base64Image,
+      displayName: name,
+      bio: bio,
+      personalNote: note,
+      occupation: occ,
+    );
+
+    // 2. Sync fresh metadata from Supabase cloud
+    _syncFromSupabase();
   }
 
   Future<void> _syncFromSupabase() async {
     if (!SupabaseConfig.isConfigured) return;
     try {
       final user = supabase.auth.currentUser;
-      if (user != null && user.userMetadata != null) {
-        final meta = user.userMetadata!;
-        final name = meta['display_name'] as String?;
-        final emoji = meta['avatar_emoji'] as String?;
-        final base64Image = meta['avatar_base64'] as String?;
-        final bio = meta['bio'] as String?;
-        final note = meta['personal_note'] as String?;
-        final occ = meta['occupation'] as String?;
+      if (user != null) {
+        final userId = user.id;
+        final meta = user.userMetadata;
+        final name = meta?['display_name'] as String?;
+        final icon = meta?['avatar_icon'] as String? ?? meta?['avatar_emoji'] as String?;
+        final base64Image = meta?['avatar_base64'] as String?;
+        final bio = meta?['bio'] as String?;
+        final note = meta?['personal_note'] as String?;
+        final occ = meta?['occupation'] as String?;
 
-        if (name != null || emoji != null || base64Image != null || bio != null || occ != null) {
-          state = state.copyWith(
-            displayName: name ?? state.displayName,
-            avatarEmoji: emoji ?? state.avatarEmoji,
-            avatarBase64: base64Image ?? state.avatarBase64,
-            bio: bio ?? state.bio,
-            personalNote: note ?? state.personalNote,
-            occupation: occ ?? state.occupation,
-          );
-          if (name != null) await _prefs.setString('user_display_name', name);
-          if (emoji != null) await _prefs.setString('user_avatar_emoji', emoji);
-          if (base64Image != null) await _prefs.setString('user_avatar_base64', base64Image);
-          if (bio != null) await _prefs.setString('user_bio', bio);
-          if (note != null) await _prefs.setString('user_personal_note', note);
-          if (occ != null) await _prefs.setString('user_occupation', occ);
+        final userEmail = user.email ?? '';
+        final defaultName = userEmail.contains('@') ? userEmail.split('@')[0] : 'User';
+
+        state = state.copyWith(
+          displayName: name ?? (state.displayName.isNotEmpty ? state.displayName : defaultName),
+          avatarIcon: icon ?? state.avatarIcon,
+          avatarBase64: base64Image ?? state.avatarBase64,
+          bio: bio ?? state.bio,
+          personalNote: note ?? state.personalNote,
+          occupation: occ ?? state.occupation,
+        );
+
+        if (state.displayName.isNotEmpty) await _prefs.setString(_keyFor(userId, 'display_name'), state.displayName);
+        await _prefs.setString(_keyFor(userId, 'avatar_icon'), state.avatarIcon);
+        if (state.avatarBase64 != null && state.avatarBase64!.isNotEmpty) {
+          await _prefs.setString(_keyFor(userId, 'avatar_base64'), state.avatarBase64!);
         }
+        if (state.bio.isNotEmpty) await _prefs.setString(_keyFor(userId, 'bio'), state.bio);
+        if (state.personalNote.isNotEmpty) await _prefs.setString(_keyFor(userId, 'personal_note'), state.personalNote);
+        if (state.occupation.isNotEmpty) await _prefs.setString(_keyFor(userId, 'occupation'), state.occupation);
       }
     } catch (_) {}
   }
 
   Future<void> updateProfile({
-    String? avatarEmoji,
+    String? avatarIcon,
     String? avatarBase64,
     String? displayName,
     String? bio,
@@ -114,8 +139,11 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     String? occupation,
     bool clearCustomAvatar = false,
   }) async {
+    final user = supabase.auth.currentUser;
+    final userId = user?.id ?? 'guest';
+
     state = state.copyWith(
-      avatarEmoji: avatarEmoji,
+      avatarIcon: avatarIcon,
       avatarBase64: avatarBase64,
       displayName: displayName,
       bio: bio,
@@ -125,24 +153,23 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     );
 
     try {
-      await _prefs.setString('user_avatar_emoji', state.avatarEmoji);
+      await _prefs.setString(_keyFor(userId, 'avatar_icon'), state.avatarIcon);
       if (state.avatarBase64 != null && state.avatarBase64!.isNotEmpty) {
-        await _prefs.setString('user_avatar_base64', state.avatarBase64!);
+        await _prefs.setString(_keyFor(userId, 'avatar_base64'), state.avatarBase64!);
       } else {
-        await _prefs.remove('user_avatar_base64');
+        await _prefs.remove(_keyFor(userId, 'avatar_base64'));
       }
-      await _prefs.setString('user_display_name', state.displayName);
-      await _prefs.setString('user_bio', state.bio);
-      await _prefs.setString('user_personal_note', state.personalNote);
-      await _prefs.setString('user_occupation', state.occupation);
+      await _prefs.setString(_keyFor(userId, 'display_name'), state.displayName);
+      await _prefs.setString(_keyFor(userId, 'bio'), state.bio);
+      await _prefs.setString(_keyFor(userId, 'personal_note'), state.personalNote);
+      await _prefs.setString(_keyFor(userId, 'occupation'), state.occupation);
 
-      // Cloud Database Sync: persist to Supabase Auth User Metadata
-      if (SupabaseConfig.isConfigured && supabase.auth.currentUser != null) {
+      if (SupabaseConfig.isConfigured && user != null) {
         await supabase.auth.updateUser(
           UserAttributes(
             data: {
               'display_name': state.displayName,
-              'avatar_emoji': state.avatarEmoji,
+              'avatar_icon': state.avatarIcon,
               'avatar_base64': state.avatarBase64,
               'bio': state.bio,
               'personal_note': state.personalNote,
@@ -155,21 +182,24 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
   }
 
   Future<void> deletePersonalData() async {
+    final user = supabase.auth.currentUser;
+    final userId = user?.id ?? 'guest';
+
     state = const UserProfile();
     try {
-      await _prefs.remove('user_avatar_emoji');
-      await _prefs.remove('user_avatar_base64');
-      await _prefs.remove('user_display_name');
-      await _prefs.remove('user_bio');
-      await _prefs.remove('user_personal_note');
-      await _prefs.remove('user_occupation');
+      await _prefs.remove(_keyFor(userId, 'avatar_icon'));
+      await _prefs.remove(_keyFor(userId, 'avatar_base64'));
+      await _prefs.remove(_keyFor(userId, 'display_name'));
+      await _prefs.remove(_keyFor(userId, 'bio'));
+      await _prefs.remove(_keyFor(userId, 'personal_note'));
+      await _prefs.remove(_keyFor(userId, 'occupation'));
 
-      if (SupabaseConfig.isConfigured && supabase.auth.currentUser != null) {
+      if (SupabaseConfig.isConfigured && user != null) {
         await supabase.auth.updateUser(
           UserAttributes(
             data: {
               'display_name': null,
-              'avatar_emoji': null,
+              'avatar_icon': null,
               'avatar_base64': null,
               'bio': null,
               'personal_note': null,
@@ -186,4 +216,5 @@ final profileProvider = StateNotifierProvider<ProfileNotifier, UserProfile>((ref
   final prefs = ref.watch(sharedPreferencesProvider);
   return ProfileNotifier(prefs);
 });
+
 

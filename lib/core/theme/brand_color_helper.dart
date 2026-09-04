@@ -208,10 +208,12 @@ class BrandHelper {
           width: size - 12,
           height: size - 12,
           errorBuilder: (_, __, ___) => Center(
-            child: Text(
-              fallbackEmoji != null && fallbackEmoji.isNotEmpty ? fallbackEmoji : (domain.isNotEmpty ? domain[0].toUpperCase() : '🌐'),
-              style: TextStyle(fontSize: size * 0.45, fontWeight: FontWeight.bold),
-            ),
+            child: domain.isNotEmpty
+                ? Text(
+                    domain[0].toUpperCase(),
+                    style: TextStyle(fontSize: size * 0.45, fontWeight: FontWeight.bold),
+                  )
+                : Icon(Icons.language_rounded, size: size * 0.5),
           ),
         ),
       ),

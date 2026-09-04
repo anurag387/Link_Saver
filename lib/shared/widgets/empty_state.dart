@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_spacing.dart';
 
 class EmptyState extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String message;
   final String? actionLabel;
@@ -10,7 +10,8 @@ class EmptyState extends StatelessWidget {
 
   const EmptyState({
     super.key,
-    required this.emoji,
+    this.icon = Icons.inbox_rounded,
+    String? emoji, // Deprecated parameter kept for compatibility
     required this.title,
     required this.message,
     this.actionLabel,
@@ -26,20 +27,39 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 48)),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 40,
+                color: theme.colorScheme.primary,
+              ),
+            ),
             const SizedBox(height: AppSpacing.standard),
-            Text(title, style: theme.textTheme.titleLarge),
+            Text(
+              title,
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: AppSpacing.small),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             if (actionLabel != null) ...[
               const SizedBox(height: AppSpacing.large),
-              FilledButton(
+              FilledButton.icon(
                 onPressed: onAction,
-                child: Text(actionLabel!),
+                icon: const Icon(Icons.add_rounded),
+                label: Text(actionLabel!),
               ),
             ],
           ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../collections/providers/collections_provider.dart';
 import '../../links/presentation/link_detail_screen.dart';
@@ -31,8 +32,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
-    // Debounced so search results update instantly-feeling without
-    // recomputing on every keystroke (design spec section 5.5).
     _debounce = Timer(const Duration(milliseconds: 250), () {
       ref.read(searchQueryProvider.notifier).state = value;
     });
@@ -40,7 +39,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final results = ref.watch(searchResultsProvider);
     final collections = ref.watch(collectionsProvider);
     final collectionFilter = ref.watch(searchCollectionFilterProvider);
@@ -61,10 +59,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search_rounded),
                 hintText: 'Search links, tags, notes...',
-                // Listen to the controller directly (not the debounced
-                // searchQueryProvider) so the clear button shows/hides
-                // immediately as the user types, instead of lagging by up
-                // to 250ms or getting stuck while they're still typing.
                 suffixIcon: ValueListenableBuilder<TextEditingValue>(
                   valueListenable: _controller,
                   builder: (context, value, _) {
@@ -89,23 +83,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.large),
               children: [
                 FilterChip(
+                  avatar: const Icon(Icons.star_rounded, size: 16),
                   label: const Text('Favorites'),
                   selected: favoritesOnly,
                   onSelected: (v) =>
                       ref.read(searchFavoritesOnlyProvider.notifier).state = v,
                 ),
                 const SizedBox(width: AppSpacing.small),
-                ...collections.map((c) => Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.small),
-                      child: FilterChip(
-                        label: Text('${c.emoji} ${c.name}'),
-                        selected: collectionFilter == c.id,
-                        onSelected: (selected) => ref
-                                .read(searchCollectionFilterProvider.notifier)
-                                .state =
-                            selected ? c.id : null,
-                      ),
-                    )),
+                ...collections.map((c) {
+                  final iconData = IconHelper.getCollectionIcon(c.emoji);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.small),
+                    child: FilterChip(
+                      avatar: Icon(iconData, size: 16),
+                      label: Text(c.name),
+                      selected: collectionFilter == c.id,
+                      onSelected: (selected) => ref
+                          .read(searchCollectionFilterProvider.notifier)
+                          .state = selected ? c.id : null,
+                    ),
+                  );
+                }),
                 const SizedBox(width: AppSpacing.small),
                 DropdownButtonHideUnderline(
                   child: DropdownButton<SortOption>(
@@ -133,38 +131,50 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: AppSpacing.small),
           Expanded(
-            child: results.isEmpty
-                ? EmptyState(
-                    emoji: '🔍',
-                    title: query.isEmpty ? 'Search your links' : 'No links found',
-                    message: query.isEmpty
-                        ? 'Try a title, tag, domain, or note.'
-                        : 'Try another keyword or remove filters.',
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.large, 0,
-                        AppSpacing.large, AppSpacing.large),
-                    itemCount: results.length,
-                    itemBuilder: (context, index) {
-                      final link = results[index];
-                      return LinkCard(
-                        link: link,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => LinkDetailScreen(linkId: link.id),
-                          ),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(linksProvider.notifier).load();
+              },
+              child: results.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: EmptyState(
+                          icon: Icons.search_rounded,
+                          title: query.isEmpty ? 'Search your links' : 'No links found',
+                          message: query.isEmpty
+                              ? 'Try a title, tag, domain, or note.'
+                              : 'Try another keyword or remove filters.',
                         ),
-                        onFavorite: () => ref
-                            .read(linksProvider.notifier)
-                            .toggleFavorite(link.id),
-                        onArchive: () => ref
-                            .read(linksProvider.notifier)
-                            .toggleArchive(link.id),
-                        onDelete: () =>
-                            ref.read(linksProvider.notifier).deleteLink(link.id),
-                      );
-                    },
-                  ),
+                      ),
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.large, 0,
+                          AppSpacing.large, AppSpacing.large),
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final link = results[index];
+                        return LinkCard(
+                          link: link,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => LinkDetailScreen(linkId: link.id),
+                            ),
+                          ),
+                          onFavorite: () => ref
+                              .read(linksProvider.notifier)
+                              .toggleFavorite(link.id),
+                          onArchive: () => ref
+                              .read(linksProvider.notifier)
+                              .toggleArchive(link.id),
+                          onDelete: () =>
+                              ref.read(linksProvider.notifier).deleteLink(link.id),
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),

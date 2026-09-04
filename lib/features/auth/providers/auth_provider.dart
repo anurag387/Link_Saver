@@ -13,7 +13,8 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 
 final currentUserProvider = Provider<User?>((ref) {
   if (!SupabaseConfig.isConfigured) return null;
-  return supabase.auth.currentUser;
+  final authState = ref.watch(authStateProvider);
+  return authState.value?.session?.user ?? supabase.auth.currentUser;
 });
 
 class AuthController {

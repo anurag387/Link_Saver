@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../../shared/models/collection_model.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../links/presentation/link_detail_screen.dart';
@@ -45,9 +46,18 @@ class CollectionDetailScreen extends ConsumerWidget {
 
     final canDelete = collectionId != kFallbackCollectionId;
 
+    final iconData = IconHelper.getCollectionIcon(collection.emoji);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('${collection.emoji}  ${collection.name}'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(iconData, size: 20),
+            const SizedBox(width: 8),
+            Text(collection.name),
+          ],
+        ),
         actions: [
           if (canDelete)
             IconButton(
@@ -57,33 +67,45 @@ class CollectionDetailScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: links.isEmpty
-          ? EmptyState(
-              emoji: collection.emoji,
-              title: 'No links yet',
-              message: 'Links you save into "${collection.name}" will show up here.',
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.large),
-              itemCount: links.length,
-              itemBuilder: (context, index) {
-                final link = links[index];
-                return LinkCard(
-                  link: link,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => LinkDetailScreen(linkId: link.id),
-                    ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(linksProvider.notifier).load();
+        },
+        child: links.isEmpty
+            ? SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: EmptyState(
+                    icon: iconData,
+                    title: 'No links yet',
+                    message: 'Links you save into "${collection.name}" will show up here.',
                   ),
-                  onFavorite: () =>
-                      ref.read(linksProvider.notifier).toggleFavorite(link.id),
-                  onArchive: () =>
-                      ref.read(linksProvider.notifier).toggleArchive(link.id),
-                  onDelete: () =>
-                      ref.read(linksProvider.notifier).deleteLink(link.id),
-                );
-              },
-            ),
+                ),
+              )
+            : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(AppSpacing.large),
+                itemCount: links.length,
+                itemBuilder: (context, index) {
+                  final link = links[index];
+                  return LinkCard(
+                    link: link,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => LinkDetailScreen(linkId: link.id),
+                      ),
+                    ),
+                    onFavorite: () =>
+                        ref.read(linksProvider.notifier).toggleFavorite(link.id),
+                    onArchive: () =>
+                        ref.read(linksProvider.notifier).toggleArchive(link.id),
+                    onDelete: () =>
+                        ref.read(linksProvider.notifier).deleteLink(link.id),
+                  );
+                },
+              ),
+      ),
     );
   }
 

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/theme/brand_color_helper.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../collections/providers/collections_provider.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../providers/links_provider.dart';
@@ -24,7 +29,11 @@ class LinkDetailScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: Text('Link not found')));
     }
 
-    final collection = collections.where((c) => c.id == link.collectionId).firstOrNull;
+    final collection =
+        collections.where((c) => c.id == link.collectionId).firstOrNull;
+    final collectionIcon = collection != null
+        ? IconHelper.getCollectionIcon(collection.emoji)
+        : Icons.folder_rounded;
     final openExternally = ref.watch(openLinksExternallyProvider);
 
     return Scaffold(
@@ -32,7 +41,30 @@ class LinkDetailScreen extends ConsumerWidget {
         title: const Text('Link Details'),
         actions: [
           IconButton(
-            icon: Icon(link.isFavorite ? Icons.star_rounded : Icons.star_border_rounded),
+            tooltip: 'Copy Link',
+            icon: const Icon(Icons.copy_rounded),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: link.url));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Link copied to clipboard!')),
+                );
+              }
+            },
+          ),
+          IconButton(
+            tooltip: 'Show QR Code',
+            icon: const Icon(Icons.qr_code_2_rounded),
+            onPressed: () => _showQrCodeDialog(context, link.url, link.title),
+          ),
+          IconButton(
+            tooltip: 'Share',
+            icon: const Icon(Icons.share_rounded),
+            onPressed: () => _shareLink(link.url, link.title),
+          ),
+          IconButton(
+            icon: Icon(
+                link.isFavorite ? Icons.star_rounded : Icons.star_border_rounded),
             onPressed: () =>
                 ref.read(linksProvider.notifier).toggleFavorite(link.id),
           ),
@@ -45,9 +77,6 @@ class LinkDetailScreen extends ConsumerWidget {
               } else if (value == 'delete') {
                 ref.read(linksProvider.notifier).deleteLink(link.id);
                 Navigator.of(context).pop();
-              } else if (value == 'share') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Share sheet would open here.')));
               }
             },
             itemBuilder: (context) => [
@@ -56,8 +85,10 @@ class LinkDetailScreen extends ConsumerWidget {
                 value: 'archive',
                 child: Text(link.isArchived ? 'Unarchive' : 'Archive'),
               ),
-              const PopupMenuItem(value: 'share', child: Text('Share')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         ],
@@ -66,18 +97,39 @@ class LinkDetailScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.large),
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(link.faviconEmoji ?? '🌐', style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: AppSpacing.small),
+              BrandHelper.buildBrandLogo(
+                link.url.isNotEmpty ? link.url : link.domain,
+                size: 44,
+                fallbackEmoji: link.faviconEmoji,
+              ),
+              const SizedBox(width: AppSpacing.standard),
               Expanded(
-                child: Text(link.domain,
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      link.domain,
+                      style: theme.textTheme.titleSmall?.copyWith(
                         color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      link.url,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.standard),
+          const SizedBox(height: AppSpacing.large),
           Text(link.title, style: theme.textTheme.headlineSmall),
           const SizedBox(height: AppSpacing.small),
           if (link.description.isNotEmpty)
@@ -86,15 +138,13 @@ class LinkDetailScreen extends ConsumerWidget {
           Divider(color: theme.dividerColor),
           const SizedBox(height: AppSpacing.large),
           _DetailRow(
-            icon: Icons.folder_rounded,
-            text: collection != null
-                ? '${collection.emoji} ${collection.name}'
-                : 'Uncategorized',
+            icon: collectionIcon,
+            text: collection != null ? collection.name : 'Personal',
           ),
           const SizedBox(height: AppSpacing.compact),
           _DetailRow(
             icon: Icons.sell_rounded,
-            text: link.tags.isEmpty ? 'No tags' : link.tags.join(', '),
+            text: link.tags.isEmpty ? 'No tags' : link.tags.map((t) => '#$t').join('  '),
           ),
           const SizedBox(height: AppSpacing.compact),
           _DetailRow(
@@ -134,12 +184,79 @@ class LinkDetailScreen extends ConsumerWidget {
     );
   }
 
+  void _shareLink(String url, String title) {
+    Share.share(
+      title.isNotEmpty ? '$title - $url' : url,
+      subject: title.isNotEmpty ? title : 'Shared Link',
+    );
+  }
+
+  void _showQrCodeDialog(BuildContext context, String url, String title) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_2_rounded, size: 24),
+            SizedBox(width: 8),
+            Text('Link QR Code'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SizedBox(
+                width: 200,
+                height: 200,
+                child: QrImageView(
+                  data: url.isNotEmpty ? url : 'https://example.com',
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                  gapless: false,
+                  errorStateBuilder: (cxt, err) {
+                    return const Center(
+                      child: Text(
+                        'QR code error',
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              url,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openLink(
       BuildContext context, String url, bool openExternally) async {
     final uri = Uri.tryParse(url.startsWith('http') ? url : 'https://$url');
     if (uri == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("That link doesn't look valid.")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("That link doesn't look valid.")));
       return;
     }
 
@@ -151,8 +268,8 @@ class LinkDetailScreen extends ConsumerWidget {
     );
 
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open $url')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not open $url')));
     }
   }
 }

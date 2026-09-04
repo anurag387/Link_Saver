@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../../shared/models/link_model.dart';
 import '../../collections/providers/collections_provider.dart';
 import '../providers/links_provider.dart';
@@ -24,6 +25,7 @@ class EditLinkSheet extends ConsumerStatefulWidget {
 }
 
 class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
+  late final TextEditingController _urlController;
   late final TextEditingController _titleController;
   late final TextEditingController _descController;
   late final TextEditingController _notesController;
@@ -32,11 +34,13 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
   late String _collectionId;
   late bool _isFavorite;
   late bool _isReadLater;
+  String? _urlError;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(text: widget.link.url);
     _titleController = TextEditingController(text: widget.link.title);
     _descController = TextEditingController(text: widget.link.description);
     _notesController = TextEditingController(text: widget.link.notes);
@@ -49,6 +53,7 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
 
   @override
   void dispose() {
+    _urlController.dispose();
     _titleController.dispose();
     _descController.dispose();
     _notesController.dispose();
@@ -66,10 +71,63 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
     }
   }
 
+  void _showQuickNewCollectionDialog() {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Collection'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Collection Name',
+            hintText: 'e.g. Work, Research, Dev',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isNotEmpty) {
+                await ref.read(collectionsProvider.notifier).addCollection(name);
+                final updated = ref.read(collectionsProvider);
+                if (updated.isNotEmpty) {
+                  setState(() {
+                    _collectionId = updated.last.id;
+                  });
+                }
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    ).then((_) => nameCtrl.dispose());
+  }
+
   Future<void> _save() async {
-    setState(() => _saving = true);
+    final urlText = _urlController.text.trim();
+    if (urlText.isEmpty) {
+      setState(() => _urlError = 'URL cannot be empty');
+      return;
+    }
+
+    setState(() {
+      _urlError = null;
+      _saving = true;
+    });
+
+    final cleanUrl = urlText.startsWith('http') ? urlText : 'https://$urlText';
+
     await ref.read(linksProvider.notifier).updateLink(
       widget.link.id,
+      url: cleanUrl,
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
       notes: _notesController.text.trim(),
@@ -81,7 +139,7 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Link updated successfully!')),
+        const SnackBar(content: Text('Link updated successfully!')),
       );
     }
   }
@@ -90,6 +148,9 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final collections = ref.watch(collectionsProvider);
+    final selectedCollectionId = collections.any((c) => c.id == _collectionId)
+        ? _collectionId
+        : (collections.isNotEmpty ? collections.first.id : kFallbackCollectionId);
 
     return Container(
       decoration: BoxDecoration(
@@ -130,6 +191,20 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
             ),
             const Divider(height: 20),
             TextField(
+              controller: _urlController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'URL',
+                hintText: 'https://example.com',
+                prefixIcon: const Icon(Icons.link_rounded),
+                errorText: _urlError,
+              ),
+              onChanged: (_) {
+                if (_urlError != null) setState(() => _urlError = null);
+              },
+            ),
+            const SizedBox(height: AppSpacing.standard),
+            TextField(
               controller: _titleController,
               decoration: const InputDecoration(
                 labelText: 'Title',
@@ -146,23 +221,42 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.standard),
-            DropdownButtonFormField<String>(
-              value: collections.any((c) => c.id == _collectionId)
-                  ? _collectionId
-                  : (collections.isNotEmpty ? collections.first.id : null),
-              decoration: const InputDecoration(
-                labelText: 'Collection',
-                prefixIcon: Icon(Icons.folder_outlined),
-              ),
-              items: collections
-                  .map((c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text('${c.emoji} ${c.name}'),
-                      ))
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _collectionId = val);
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: selectedCollectionId,
+                    decoration: const InputDecoration(
+                      labelText: 'Collection',
+                      prefixIcon: Icon(Icons.folder_outlined),
+                    ),
+                    items: collections
+                        .map((c) {
+                          final iconData = IconHelper.getCollectionIcon(c.emoji);
+                          return DropdownMenuItem(
+                            value: c.id,
+                            child: Row(
+                              children: [
+                                Icon(iconData, size: 18),
+                                const SizedBox(width: 8),
+                                Text(c.name),
+                              ],
+                            ),
+                          );
+                        })
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _collectionId = val);
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.small),
+                IconButton.filledTonal(
+                  tooltip: 'Create New Collection',
+                  icon: const Icon(Icons.create_new_folder_outlined),
+                  onPressed: _showQuickNewCollectionDialog,
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.standard),
             TextField(
@@ -212,13 +306,15 @@ class _EditLinkSheetState extends ConsumerState<EditLinkSheet> {
             Row(
               children: [
                 FilterChip(
-                  label: const Text('⭐ Favorite'),
+                  avatar: const Icon(Icons.star_rounded, size: 16),
+                  label: const Text('Favorite'),
                   selected: _isFavorite,
                   onSelected: (val) => setState(() => _isFavorite = val),
                 ),
                 const SizedBox(width: AppSpacing.small),
                 FilterChip(
-                  label: const Text('⏳ Read Later'),
+                  avatar: const Icon(Icons.schedule_rounded, size: 16),
+                  label: const Text('Read Later'),
                   selected: _isReadLater,
                   onSelected: (val) => setState(() => _isReadLater = val),
                 ),

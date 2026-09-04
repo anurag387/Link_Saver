@@ -129,7 +129,14 @@ class _DesktopShell extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.large),
                   child: Row(
                     children: [
-                      Text('🔗', style: Theme.of(context).textTheme.headlineSmall),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(AppRadius.medium),
+                        ),
+                        child: Icon(Icons.link_rounded, color: Theme.of(context).colorScheme.primary, size: 24),
+                      ),
                       const SizedBox(width: AppSpacing.small),
                       Text('Link Saver',
                           style: Theme.of(context).textTheme.titleLarge),

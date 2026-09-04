@@ -4,21 +4,22 @@
 create extension if not exists pgcrypto;
 
 create table if not exists public.collections (
-  id text primary key,
+  id text not null,
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
-  emoji text not null default '📁',
-  created_at timestamptz not null default now()
+  emoji text not null default 'folder',
+  created_at timestamptz not null default now(),
+  primary key (id, user_id)
 );
 
 create table if not exists public.links (
-  id text primary key,
+  id text not null,
   user_id uuid not null references auth.users(id) on delete cascade,
   url text not null,
   title text not null default '',
   description text not null default '',
   domain text not null default '',
-  favicon_emoji text default '🌐',
+  favicon_emoji text default '',
   collection_id text not null,
   tags text[] not null default '{}',
   notes text not null default '',
@@ -26,7 +27,8 @@ create table if not exists public.links (
   is_archived boolean not null default false,
   is_read_later boolean not null default false,
   saved_at timestamptz not null default now(),
-  metadata_pending boolean not null default false
+  metadata_pending boolean not null default false,
+  primary key (id, user_id)
 );
 
 create index if not exists collections_user_id_idx on public.collections(user_id);

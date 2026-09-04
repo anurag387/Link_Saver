@@ -61,7 +61,7 @@ class ProjectOverviewDialog extends StatelessWidget {
                   children: [
                     _buildCard(
                       theme: theme,
-                      title: '👨‍💻 Lead Developer & Project Creator',
+                      title: 'Lead Developer & Project Creator',
                       icon: Icons.person_pin_rounded,
                       color: Colors.amber,
                       content: '• Creator: Anurag Barmon\n'
@@ -72,15 +72,15 @@ class ProjectOverviewDialog extends StatelessWidget {
                     const SizedBox(height: AppSpacing.standard),
                     _buildCard(
                       theme: theme,
-                      title: '🌟 Project Summary & Capabilities',
+                      title: 'Project Summary & Capabilities',
                       icon: Icons.auto_awesome_rounded,
                       color: Colors.teal,
-                      content: 'Link Saver is a full-featured, cross-platform bookmarking and digital curation suite built with Flutter and Supabase. It enables users to instantly save web links, organize them into emoji collections, search with live filters, and access all data seamlessly across devices.',
+                      content: 'Link Saver is a full-featured, cross-platform bookmarking and digital curation suite built with Flutter and Supabase. It enables users to instantly save web links, organize them into collections, search with live filters, and access all data seamlessly across devices.',
                     ),
                     const SizedBox(height: AppSpacing.standard),
                     _buildCard(
                       theme: theme,
-                      title: '🛠️ Tech Stack & Architecture',
+                      title: 'Tech Stack & Architecture',
                       icon: Icons.layers_rounded,
                       color: Colors.blue,
                       content: '• Framework: Flutter 3.47+ (Dart 3.13)\n'
@@ -93,21 +93,21 @@ class ProjectOverviewDialog extends StatelessWidget {
                     const SizedBox(height: AppSpacing.standard),
                     _buildCard(
                       theme: theme,
-                      title: '🗄️ Database Tables & Schema',
+                      title: 'Database Tables & Schema',
                       icon: Icons.table_chart_rounded,
                       color: Colors.teal,
-                      content: '1. public.collections (id, user_id, name, emoji, created_at)\n'
+                      content: '1. public.collections (id, user_id, name, icon, created_at)\n'
                           '2. public.links (id, user_id, url, title, description, domain, favicon_emoji, collection_id, tags, notes, is_favorite, is_archived, is_read_later, saved_at, metadata_pending)\n\n'
                           'Security: 4 RLS policies (SELECT, INSERT, UPDATE, DELETE) per table bound to auth.uid().',
                     ),
                     const SizedBox(height: AppSpacing.standard),
                     _buildCard(
                       theme: theme,
-                      title: '📦 App Versioning & How to Upgrade',
+                      title: 'App Versioning & How to Upgrade',
                       icon: Icons.system_update_alt_rounded,
                       color: Colors.deepOrange,
                       content: 'Version format: MAJOR.MINOR.PATCH+BUILD_NUMBER (e.g., 1.1.0+3)\n\n'
-                          '• pubspec.yaml ফাইলে ersion: 1.1.0+3 এডিট করে ভার্সন বাড়ানো হয়:\n'
+                          '• pubspec.yaml ফাইলে version: 1.1.0+3 এডিট করে ভার্সন বাড়ানো হয়:\n'
                           '  - Major (1.x.x): বড় ধরনের নতুন ফিচার বা আর্কিটেকচার পরিবর্তনের জন্য।\n'
                           '  - Minor (x.1.x): নতুন ফিচার বা স্ক্রিন যোগ করলে।\n'
                           '  - Patch (x.x.1): বাগ ফিক্স বা ছোটখাটো উন্নতির জন্য।\n'
@@ -116,12 +116,12 @@ class ProjectOverviewDialog extends StatelessWidget {
                     const SizedBox(height: AppSpacing.standard),
                     _buildCard(
                       theme: theme,
-                      title: '🚀 Multi-Platform Deployment',
+                      title: 'Multi-Platform Deployment',
                       icon: Icons.devices_rounded,
                       color: Colors.purple,
-                      content: '• Web Build: lutter run -d chrome (ব্রাউজারে রিয়েল-টাইম ক্লাউড অ্যাপ)\n'
-                          '• Android APK: uild_apk.bat (ফোনে সরাসরি ইন্সটলযোগ্য রিলিজ APK)\n'
-                          '• Windows Desktop: lutter run -d windows (Visual Studio C++ বিল্ডের মাধ্যমে)',
+                      content: '• Web Build: flutter run -d chrome (ব্রাউজারে রিয়েল-টাইম ক্লাউড অ্যাপ)\n'
+                          '• Android APK: build_apk.bat (ফোনে সরাসরি ইন্সটলযোগ্য রিলিজ APK)\n'
+                          '• Windows Desktop: flutter run -d windows (Visual Studio C++ বিল্ডের মাধ্যমে)',
                     ),
                   ],
                 ),

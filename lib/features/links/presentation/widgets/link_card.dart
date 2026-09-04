@@ -185,12 +185,20 @@ class LinkCard extends ConsumerWidget {
                             color: theme.colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            '⏳ Read Later',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule_rounded, size: 12, color: theme.colorScheme.onPrimaryContainer),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Read Later',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       const Spacer(),

@@ -7,17 +7,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/backend/supabase_config.dart';
+import '../../../core/utils/icon_helper.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/models/collection_model.dart';
 import '../../../shared/models/link_model.dart';
 import '../../collections/providers/collections_provider.dart';
 import '../../links/providers/links_provider.dart';
 import '../../profile/presentation/profile_dialog.dart';
-import '../../profile/providers/profile_provider.dart';
 import '../providers/settings_provider.dart';
+import 'app_version_dialog.dart';
 import 'project_overview_dialog.dart';
 
-final appVersionProvider = Provider<String>((ref) => '1.1.0+3');
+final appVersionProvider = Provider<String>((ref) => '1.1.0');
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -32,7 +33,6 @@ class SettingsScreen extends ConsumerWidget {
     final defaultCollection = ref.watch(defaultCollectionProvider);
     final collections = ref.watch(collectionsProvider);
     final links = ref.watch(linksProvider);
-    final profile = ref.watch(profileProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -92,7 +92,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.storage_rounded, color: Colors.blue),
             title: const Text('Storage & Sync Analytics'),
-            subtitle: Text(' links •  collections synced to cloud'),
+            subtitle: Text('${links.length} links • ${collections.length} collections synced to cloud'),
             onTap: () => _showStorageAnalytics(context, links, collections),
             trailing: const Icon(Icons.chevron_right_rounded),
           ),
@@ -112,7 +112,7 @@ class SettingsScreen extends ConsumerWidget {
               await ref.read(collectionsProvider.notifier).load();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✅ Cloud data synced successfully with Supabase!')),
+                  const SnackBar(content: Text('Cloud data synced successfully with Supabase!')),
                 );
               }
             },
@@ -150,7 +150,15 @@ class SettingsScreen extends ConsumerWidget {
               underline: const SizedBox.shrink(),
               items: collections
                   .map((c) => DropdownMenuItem(
-                      value: c.id, child: Text('${c.emoji} ${c.name}')))
+                      value: c.id,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(IconHelper.getCollectionIcon(c.icon), size: 18),
+                          const SizedBox(width: 8),
+                          Text(c.name),
+                        ],
+                      )))
                   .toList(),
               onChanged: (v) {
                 if (v != null) {
@@ -180,15 +188,16 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.info_outline_rounded, color: Colors.blueAccent),
             title: const Text('App Version'),
-            subtitle: Text('v$appVersion • Live auto-detected from build metadata'),
+            subtitle: Text('v$appVersion • Tap to check for update'),
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(AppRadius.medium),
               ),
-              child: Text(appVersion, style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('v$appVersion', style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
+            onTap: () => checkAppUpdate(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.military_tech_rounded, color: Colors.amber),
@@ -260,18 +269,18 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('📊 Storage & Cloud Sync Analytics'),
+        title: const Text('Storage & Cloud Sync Analytics'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _statRow('Total Links Saved:', ' links'),
-            _statRow('⭐ Favorites:', ' links'),
-            _statRow('⏳ Read Later:', ' links'),
-            _statRow('📁 Collections:', ' collections'),
-            _statRow('📦 Archived:', ' links'),
+            _statRow('Total Links Saved:', '${links.length} links'),
+            _statRow('Favorites:', '$favoritesCount links'),
+            _statRow('Read Later:', '$readLaterCount links'),
+            _statRow('Collections:', '${collections.length} collections'),
+            _statRow('Archived:', '$archivedCount links'),
             const Divider(height: 20),
-            _statRow('Estimated Payload Size:', '~ KB'),
+            _statRow('Estimated Payload Size:', '~$approxSizeKb KB'),
             _statRow('Sync State:', 'Cloud Real-time (Supabase)'),
           ],
         ),
@@ -302,9 +311,9 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('🧹 Cache Management'),
+        title: const Text('Cache Management'),
         content: Text(
-          'Currently caching  in-memory link models and Supabase JWT auth token.\n\n'
+          'Currently caching $linkCount in-memory link models and Supabase JWT auth token.\n\n'
           'Clearing cache refreshes the state and pulls fresh data directly from Supabase Cloud.',
         ),
         actions: [
@@ -334,7 +343,7 @@ class SettingsScreen extends ConsumerWidget {
       'exportedAt': DateTime.now().toIso8601String(),
       'version': '1.1.0',
       'collections': [
-        for (final c in collections) {'id': c.id, 'name': c.name, 'emoji': c.emoji},
+        for (final c in collections) {'id': c.id, 'name': c.name, 'icon': c.icon},
       ],
       'links': [
         for (final l in links)
@@ -359,7 +368,7 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('📥 Export Complete Database'),
+        title: const Text('Export Complete Database'),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -374,7 +383,7 @@ class SettingsScreen extends ConsumerWidget {
               await Clipboard.setData(ClipboardData(text: json));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Complete database JSON copied to clipboard!')));
+                    const SnackBar(content: Text('Complete database JSON copied to clipboard!')));
               }
             },
           ),
@@ -393,7 +402,7 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('📤 Import JSON Backup'),
+        title: const Text('Import JSON Backup'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -404,7 +413,7 @@ class SettingsScreen extends ConsumerWidget {
               controller: textController,
               maxLines: 8,
               decoration: const InputDecoration(
-                hintText: '{\n  collections: [...],\n  links: [...]\n}',
+                hintText: '{\n  "collections": [...],\n  "links": [...]\n}',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -419,23 +428,35 @@ class SettingsScreen extends ConsumerWidget {
               try {
                 final raw = textController.text.trim();
                 final map = jsonDecode(raw) as Map<String, dynamic>;
-                final importedLinks = (map['links'] as List<dynamic>? ?? []);
                 
+                final importedCollections = (map['collections'] as List<dynamic>? ?? []);
+                for (final item in importedCollections) {
+                  final colMap = Map<String, dynamic>.from(item as Map);
+                  final col = LinkCollection.fromMap(colMap);
+                  await ref.read(collectionsProvider.notifier).importCollection(col);
+                }
+
+                final importedLinks = (map['links'] as List<dynamic>? ?? []);
                 for (final item in importedLinks) {
                   final linkMap = Map<String, dynamic>.from(item as Map);
                   final link = LinkItem.fromMap(linkMap);
                   await ref.read(linksProvider.notifier).importLinkItem(link);
                 }
+
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Successfully imported  links!')),
+                    SnackBar(
+                      content: Text(
+                        'Successfully imported ${importedLinks.length} links and ${importedCollections.length} collections!',
+                      ),
+                    ),
                   );
                 }
               } catch (e) {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Import failed: Invalid JSON format ()')),
+                    SnackBar(content: Text('Import failed: Invalid JSON format ($e)')),
                   );
                 }
               }
@@ -468,18 +489,18 @@ class SettingsScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppRadius.medium),
                 border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: Colors.black87,
-                    child: const Icon(Icons.code_rounded, color: Colors.white, size: 28),
+                    child: Icon(Icons.code_rounded, color: Colors.white, size: 28),
                   ),
-                  const SizedBox(width: AppSpacing.standard),
+                  SizedBox(width: AppSpacing.standard),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text('Anurag Barmon', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                         Text('Lead Mobile & Cloud Developer', style: TextStyle(fontSize: 12, color: Colors.grey)),
                         SizedBox(height: 2),
@@ -492,10 +513,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.standard),
             const Text(
-              '🌟 Project: Link Saver — Cloud Sync & Digital Knowledge Base\n'
-              '⚡ Built with: Flutter 3.47, Dart, Riverpod & Supabase Cloud\n'
-              '🔒 Security: PostgreSQL Row Level Security (RLS)\n'
-              '📱 Platform: Web, Android APK & Desktop Suite',
+              '• Project: Link Saver — Cloud Sync & Digital Knowledge Base\n'
+              '• Built with: Flutter 3.47, Dart, Riverpod & Supabase Cloud\n'
+              '• Security: PostgreSQL Row Level Security (RLS)\n'
+              '• Platform: Web, Android APK & Desktop Suite',
               style: TextStyle(fontSize: 13, height: 1.45),
             ),
             const SizedBox(height: AppSpacing.standard),

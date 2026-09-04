@@ -59,8 +59,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('🔗', textAlign: TextAlign.center, style: theme.textTheme.displaySmall),
-                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.link_rounded, size: 36, color: theme.colorScheme.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Text('Link Saver', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(_register ? 'Create an account to sync your links.' : 'Sign in to access your cloud-synced links.', textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
@@ -84,7 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: AppSpacing.standard),
                     Text(
-                      'Created with ❤️ by Anurag Barmon',
+                      'Created with pride by Anurag Barmon',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),

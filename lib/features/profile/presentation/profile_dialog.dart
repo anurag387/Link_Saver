@@ -28,18 +28,18 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
   late TextEditingController _occController;
 
   bool _isEditing = false;
-  String _selectedEmoji = '😎';
+  String _selectedIcon = 'person';
   String? _avatarBase64;
 
   final List<String> _avatarPresets = [
-    '😎', '🚀', '💻', '🎨', '🌟', '📚', '⚡', '☕', '🐱', '🦊', '🦁', '🦉'
+    'person', 'code', 'work', 'school', 'star', 'palette', 'rocket', 'camera', 'coffee', 'security', 'terminal', 'favorite'
   ];
 
   @override
   void initState() {
     super.initState();
     final profile = ref.read(profileProvider);
-    _selectedEmoji = profile.avatarEmoji;
+    _selectedIcon = profile.avatarIcon;
     _avatarBase64 = profile.avatarBase64;
     _nameController = TextEditingController(text: profile.displayName);
     _bioController = TextEditingController(text: profile.bio);
@@ -54,6 +54,23 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
     _notesController.dispose();
     _occController.dispose();
     super.dispose();
+  }
+
+  IconData _getAvatarIconData(String key) {
+    switch (key) {
+      case 'code': return Icons.code_rounded;
+      case 'work': return Icons.work_rounded;
+      case 'school': return Icons.school_rounded;
+      case 'star': return Icons.star_rounded;
+      case 'palette': return Icons.palette_rounded;
+      case 'rocket': return Icons.rocket_launch_rounded;
+      case 'camera': return Icons.camera_alt_rounded;
+      case 'coffee': return Icons.coffee_rounded;
+      case 'security': return Icons.security_rounded;
+      case 'terminal': return Icons.terminal_rounded;
+      case 'favorite': return Icons.favorite_rounded;
+      default: return Icons.person_rounded;
+    }
   }
 
   Future<void> _pickImageFromDevice() async {
@@ -156,10 +173,10 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                                           width: 90,
                                           height: 90,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Text(_selectedEmoji, style: const TextStyle(fontSize: 42)),
+                                          errorBuilder: (_, __, ___) => Icon(_getAvatarIconData(_selectedIcon), size: 42, color: Colors.white),
                                         ),
                                       )
-                                    : Text(_selectedEmoji, style: const TextStyle(fontSize: 42)),
+                                    : Icon(_getAvatarIconData(_selectedIcon), size: 42, color: Colors.white),
                               ),
                             ),
                           ),
@@ -195,7 +212,7 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                                   onTap: () {
                                     setState(() {
                                       _avatarBase64 = null;
-                                      _selectedEmoji = '😎';
+                                      _selectedIcon = 'person';
                                       _isEditing = true;
                                     });
                                   },
@@ -213,31 +230,35 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                           style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                       const SizedBox(height: AppSpacing.standard),
 
-                      // Avatar picker when in edit mode
+                      // Avatar icon picker when in edit mode
                       if (_isEditing) ...[
-                        Text('Or Choose Emoji Avatar:', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        Text('Or Choose Avatar Icon:', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: AppSpacing.small),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _avatarPresets.map((emoji) {
-                            final isSelected = _selectedEmoji == emoji && _avatarBase64 == null;
+                          children: _avatarPresets.map((iconKey) {
+                            final isSelected = _selectedIcon == iconKey && _avatarBase64 == null;
                             return InkWell(
                               borderRadius: BorderRadius.circular(20),
                               onTap: () {
                                 setState(() {
-                                  _selectedEmoji = emoji;
+                                  _selectedIcon = iconKey;
                                   _avatarBase64 = null;
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+                                  color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
                                   border: isSelected ? Border.all(color: theme.colorScheme.primary, width: 2) : null,
                                 ),
-                                child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                                child: Icon(
+                                  _getAvatarIconData(iconKey),
+                                  size: 20,
+                                  color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+                                ),
                               ),
                             );
                           }).toList(),
@@ -247,9 +268,9 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
 
                       // Personal Data Section
                       if (!_isEditing) ...[
-                        _buildInfoTile(theme, Icons.badge_outlined, 'Display Name', profile.displayName),
+                        _buildInfoTile(theme, Icons.badge_outlined, 'Display Name', profile.displayName.isNotEmpty ? profile.displayName : 'Not set'),
                         _buildInfoTile(theme, Icons.work_outline_rounded, 'Occupation / Title', profile.occupation.isEmpty ? 'Not set' : profile.occupation),
-                        _buildInfoTile(theme, Icons.info_outline_rounded, 'Bio / About', profile.bio),
+                        _buildInfoTile(theme, Icons.info_outline_rounded, 'Bio / About', profile.bio.isNotEmpty ? profile.bio : 'Not set'),
                         _buildInfoTile(theme, Icons.note_alt_outlined, 'Personal Note / Scratchpad', profile.personalNote.isEmpty ? 'No private notes yet.' : profile.personalNote),
                       ] else ...[
                         TextField(
@@ -318,7 +339,7 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                           await ref.read(profileProvider.notifier).deletePersonalData();
                           setState(() {
                             _avatarBase64 = null;
-                            _selectedEmoji = '😎';
+                            _selectedIcon = 'person';
                           });
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personal data cleared.')));
@@ -343,7 +364,7 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                       label: const Text('Save Changes'),
                       onPressed: () async {
                         await ref.read(profileProvider.notifier).updateProfile(
-                          avatarEmoji: _selectedEmoji,
+                          avatarIcon: _selectedIcon,
                           avatarBase64: _avatarBase64,
                           displayName: _nameController.text.trim(),
                           occupation: _occController.text.trim(),
@@ -353,7 +374,7 @@ class _ProfileDialogState extends ConsumerState<ProfileDialog> {
                         if (context.mounted) {
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('✅ Profile saved permanently!')),
+                            const SnackBar(content: Text('Profile saved permanently!')),
                           );
                         }
                       },

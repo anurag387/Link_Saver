@@ -17,6 +17,11 @@ dependencies:
   supabase_flutter: ^2.14.2
   shared_preferences: ^2.2.0
   image_picker: ^1.1.2
+  http: ^1.2.2
+  html: ^0.15.4
+  qr_flutter: ^4.1.0
+  share_plus: ^10.0.2
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
